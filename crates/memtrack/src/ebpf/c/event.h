@@ -15,6 +15,48 @@
 #define EVENT_TYPE_RSS 12
 #define EVENT_TYPE_RMAP 13
 
+/* Largest user-stack copy one definition can carry. The scratch buffer holding
+ * header plus bytes is a per-CPU map value, capped at PCPU_MIN_UNIT_SIZE
+ * (32 KiB) by the kernel allocator. */
+#define MEMTRACK_MAX_STACK_COPY (32 * 1024 - 512)
+
+/* Registers, indexed by the capturing architecture's DWARF register number
+ * (x86_64: 0=rax .. 7=rsp, 8..15=r8-r15, 16=rip; aarch64: 0..30=x0-x30,
+ * 31=sp, 32=pc). Slots the architecture does not define stay zero. An offline
+ * DWARF unwinder needs the callee-saved ones to evaluate CFA rules, not just
+ * ip/sp/bp. */
+#define MEMTRACK_STACK_REGS 33
+
+/* Counter slots in the stack_counters array map. */
+#define MEMTRACK_STACK_COUNTER_COPY_FAILED 0
+#define MEMTRACK_STACK_COUNTER_HASH_MAP_FULL 1
+/* bpf_get_stackid() has several negative outcomes (no user callchain,
+ * hash-bucket collision, or no free bucket), so this counts only missing ids. */
+#define MEMTRACK_STACK_COUNTER_STACKID_FAILED 2
+#define MEMTRACK_STACK_COUNTER_TRUNCATED 3
+#define MEMTRACK_STACK_COUNTER_RING_FULL 4
+#define MEMTRACK_STACK_COUNTER_PREEMPTED 5
+#define MEMTRACK_STACK_COUNTER_COUNT 6
+
+struct stack_regs {
+    uint64_t reg[MEMTRACK_STACK_REGS];
+};
+
+/* Head of a stack record; `copy_len` raw stack bytes read upwards from `sp`
+ * follow it. */
+struct stack_header {
+    uint64_t hash;
+    uint64_t timestamp; /* monotonic time in nanoseconds (CLOCK_MONOTONIC) */
+    int64_t stackid;    /* bpf_get_stackid() result; negative means unavailable */
+    uint64_t sp;        /* user stack pointer the copy starts at */
+    uint32_t pid;
+    uint32_t tid;
+    uint32_t copy_len;
+    uint8_t truncated; /* the copy hit the size cap */
+    uint8_t _pad[3];
+    struct stack_regs regs;
+};
+
 /* Common header shared by all event types */
 struct event_header {
     uint8_t event_type; /* See EVENT_TYPE_* constants above */
@@ -29,20 +71,23 @@ struct event {
     union {
         /* Allocation events (malloc, calloc, aligned_alloc) */
         struct {
-            uint64_t addr; /* address returned */
-            uint64_t size; /* size requested */
+            uint64_t addr;       /* address returned */
+            uint64_t size;       /* size requested */
+            uint64_t stack_hash; /* caller stack identity; 0 = not captured */
         } alloc;
 
         /* Deallocation event (free) */
         struct {
-            uint64_t addr; /* address to free */
+            uint64_t addr;       /* address to free */
+            uint64_t stack_hash; /* caller stack identity; 0 = not captured */
         } free;
 
         /* Reallocation event - includes both old and new addresses */
         struct {
-            uint64_t old_addr; /* previous address (can be NULL) */
-            uint64_t new_addr; /* new address returned */
-            uint64_t size;     /* new size requested */
+            uint64_t old_addr;   /* previous address (can be NULL) */
+            uint64_t new_addr;   /* new address returned */
+            uint64_t size;       /* new size requested */
+            uint64_t stack_hash; /* caller stack identity; 0 = not captured */
         } realloc;
 
         /* Memory mapping events (mmap, munmap, brk) */
