@@ -51,6 +51,40 @@ impl fmt::Display for KernelVersion {
     }
 }
 
+/// Whether the running kernel exposes its own BTF.
+///
+/// libbpf needs it to resolve CO-RE relocations, and the kernel resolves the
+/// attach target of every `fentry`/`tp_btf` program against it, so a kernel
+/// without BTF cannot load the programs at all. Detecting it up front replaces
+/// libbpf's bare `-ESRCH` with something the reader can act on.
+///
+/// Minimal kernels built for fast boot — microVM images in particular — commonly
+/// drop `CONFIG_DEBUG_INFO_BTF`, so the message has to name the option.
+pub struct KernelBtf;
+
+impl KernelBtf {
+    /// Present only on a kernel built with `CONFIG_DEBUG_INFO_BTF`.
+    const PATH: &'static str = "/sys/kernel/btf/vmlinux";
+
+    pub fn is_available() -> bool {
+        std::path::Path::new(Self::PATH).exists()
+    }
+
+    pub fn ensure_available() -> Result<()> {
+        if Self::is_available() {
+            return Ok(());
+        }
+
+        let release = kernel_release().unwrap_or_else(|_| "unknown".to_owned());
+        bail!(
+            "Memory profiling is not supported on this runner: its kernel ({release}) \
+             was built without BTF, so {} does not exist. Use a runner whose kernel is \
+             built with CONFIG_DEBUG_INFO_BTF=y.",
+            Self::PATH
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
