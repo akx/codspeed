@@ -51,6 +51,14 @@ const ALLOCATION_TEST_CASES: &[AllocationTestCase] = &[
         name: "posix_memalign_einval",
         source: include_str!("../testdata/posix_memalign_einval.c"),
     },
+    AllocationTestCase {
+        name: "nested_doubling",
+        source: include_str!("../testdata/nested_doubling.c"),
+    },
+    AllocationTestCase {
+        name: "nested_doubling_shared_free",
+        source: include_str!("../testdata/nested_doubling_shared_free.c"),
+    },
 ];
 
 #[test_with::env(GITHUB_ACTIONS)]
@@ -65,6 +73,8 @@ const ALLOCATION_TEST_CASES: &[AllocationTestCase] = &[
 #[case(&ALLOCATION_TEST_CASES[7])]
 #[case(&ALLOCATION_TEST_CASES[8])]
 #[case(&ALLOCATION_TEST_CASES[9])]
+#[case(&ALLOCATION_TEST_CASES[10])]
+#[case(&ALLOCATION_TEST_CASES[11])]
 #[test_log::test]
 fn test_allocation_tracking(
     #[case] test_case: &AllocationTestCase,
