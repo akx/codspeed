@@ -120,6 +120,11 @@ pub struct MemtrackBpf {
     pub(super) skel: Skel,
     pub(super) probes: Vec<Link>,
     rmap: RmapSupport,
+    /// `(lib_path, offset)` pairs already instrumented. glibc exports
+    /// symbols like `cfree` (and `free_sized`/`__libc_free` elsewhere) at
+    /// the same file offset as their canonical function; attaching each
+    /// alias would double-instrument the one underlying function.
+    attached_offsets: std::collections::HashSet<(std::path::PathBuf, usize)>,
 }
 
 impl MemtrackBpf {
@@ -222,6 +227,7 @@ impl MemtrackBpf {
         })
     }
 
+            attached_offsets: std::collections::HashSet::new(),
     /// Poll the allocation-event ring buffer into `tx`. The returned poller
     /// keeps the pipeline alive; events stop flowing when it is dropped.
     pub fn poll_events_with_channel(
