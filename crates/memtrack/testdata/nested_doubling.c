@@ -16,6 +16,7 @@ static volatile void* escaped_pointer;
 
 __attribute__((noinline)) static void level3(void) {
     void* p = malloc(4096);
+    sleep(1);
     escaped_pointer = p;
     free(p);
 }
@@ -23,6 +24,7 @@ __attribute__((noinline)) static void level3(void) {
 __attribute__((noinline)) static void level2(void) {
     void* p = malloc(2048);
     escaped_pointer = p;
+    sleep(1);
     level3();
     free(p);
 }
@@ -30,6 +32,7 @@ __attribute__((noinline)) static void level2(void) {
 __attribute__((noinline)) static void level1(void) {
     void* p = malloc(1024);
     escaped_pointer = p;
+    sleep(1);
     level2();
     free(p);
 }
