@@ -1,3 +1,11 @@
+// The tracked process and this binary link the same glibc, so its exported
+// malloc/free/calloc/realloc are the exact symbols we uprobe. Without a
+// separate allocator, every heap allocation this process makes for its own
+// bookkeeping (event structs, buffers, channel nodes) would retrigger those
+// uprobes: memtrack would profile itself instead of the tracked process.
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use clap::Parser;
 use ipc_channel::ipc;
 use memtrack::prelude::*;
