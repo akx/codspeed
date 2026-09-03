@@ -28,6 +28,9 @@ pub struct TrackerOptions {
     /// Capture allocation call stacks.
     #[builder(default = true)]
     pub stack_capture: bool,
+    /// Maximum bytes of user stack to copy per captured call stack.
+    #[builder(default = 8192)]
+    pub stack_budget: u32,
 }
 
 impl TrackerOptions {
@@ -42,6 +45,12 @@ impl TrackerOptions {
                 std::env::var("CODSPEED_MEMTRACK_CAPTURE_STACKS").as_deref(),
                 Ok("0") | Ok("false")
             ))
+            .stack_budget(
+                std::env::var("CODSPEED_MEMTRACK_STACK_BUDGET")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(8192),
+            )
             .build()
     }
 }

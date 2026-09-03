@@ -139,6 +139,8 @@ impl MemtrackBpf {
         });
         let track_rmap = options.rmap;
         let capture_stacks = options.stack_capture;
+        let stack_copy_budget = ((options.stack_budget / 512) * 512)
+            .clamp(512, crate::ebpf::events::bindings::MEMTRACK_MAX_STACK_COPY);
         let page_shift = page_shift()?;
         let rmap = if track_rmap {
             RmapSupport::detect()
@@ -169,6 +171,7 @@ impl MemtrackBpf {
                     }
                     if capture_stacks {
                         rodata.capture_stacks_enabled = 1;
+                        rodata.stack_copy_budget = stack_copy_budget;
                     }
                 }
 
