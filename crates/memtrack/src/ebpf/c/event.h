@@ -15,10 +15,12 @@
 #define EVENT_TYPE_RSS 12
 #define EVENT_TYPE_RMAP 13
 
-/* Largest user-stack copy one definition can carry. The scratch buffer holding
- * header plus bytes is a per-CPU map value, capped at PCPU_MIN_UNIT_SIZE
- * (32 KiB) by the kernel allocator. */
-#define MEMTRACK_MAX_STACK_COPY (32 * 1024 - 512)
+/* Largest user-stack copy one definition can carry. Every capture reserves
+ * header + budget in the ring up front, so this bounds ring space held per
+ * in-flight capture, per-capture copy cost, and the verifier work per load
+ * (which scales with the frozen budget). The kernel itself allows records up
+ * to the ring size; this is a policy cap. */
+#define MEMTRACK_MAX_STACK_COPY (32 * 1024)
 
 /* Registers, indexed by the capturing architecture's DWARF register number
  * (x86_64: 0=rax .. 7=rsp, 8..15=r8-r15, 16=rip; aarch64: 0..30=x0-x30,
@@ -35,8 +37,7 @@
 #define MEMTRACK_STACK_COUNTER_STACKID_FAILED 2
 #define MEMTRACK_STACK_COUNTER_TRUNCATED 3
 #define MEMTRACK_STACK_COUNTER_RING_FULL 4
-#define MEMTRACK_STACK_COUNTER_PREEMPTED 5
-#define MEMTRACK_STACK_COUNTER_COUNT 6
+#define MEMTRACK_STACK_COUNTER_COUNT 5
 
 struct stack_regs {
     uint64_t reg[MEMTRACK_STACK_REGS];
