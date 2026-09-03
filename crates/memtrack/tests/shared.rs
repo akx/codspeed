@@ -212,7 +212,7 @@ pub fn track_command_with_variant(command: Command, variant: BpfVariant) -> Trac
 fn rmap_only_options() -> TrackerOptions {
     TrackerOptions::builder()
         .allocators(false)
-        .rmap(true)
+        .physical(true)
         .build()
 }
 

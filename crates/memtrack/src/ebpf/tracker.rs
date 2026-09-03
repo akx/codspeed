@@ -16,9 +16,12 @@ pub struct TrackerOptions {
     /// exec-mapping watcher.
     #[builder(default = true)]
     pub allocators: bool,
-    /// Reconstruct per-process RSS from the folio rmap fentry hooks.
+    /// Track physical (resident) memory precisely by reconstructing per-process
+    /// RSS from the folio rmap fentry hooks. Off by default: the hooks target
+    /// folio rmap functions whose full set only exists on newer kernels, so
+    /// tracking is opt-in and `RmapSupport::detect` gates what actually attaches.
     #[builder(default = false)]
-    pub rmap: bool,
+    pub physical: bool,
 }
 
 impl TrackerOptions {
@@ -28,7 +31,7 @@ impl TrackerOptions {
                 std::env::var("CODSPEED_MEMTRACK_TRACK_ALLOCATORS").as_deref(),
                 Ok("0") | Ok("false")
             ))
-            .rmap(std::env::var("CODSPEED_MEMTRACK_TRACK_RMAP").is_ok_and(|v| v == "1"))
+            .physical(std::env::var("CODSPEED_MEMTRACK_TRACK_PHYSICAL").is_ok_and(|v| v == "1"))
             .build()
     }
 }
@@ -49,7 +52,7 @@ impl Tracker {
     /// Create a tracker from an explicit probe selection rather than the environment.
     pub fn with_options(options: TrackerOptions) -> Result<Self> {
         Self::build(
-            MemtrackBpf::new_with_rmap(options.rmap)?,
+            MemtrackBpf::new_with_rmap(options.physical)?,
             options.allocators,
         )
     }
@@ -57,8 +60,8 @@ impl Tracker {
     /// Like [`Tracker::new`], but pinned to a specific BPF variant instead of
     /// the detected one.
     pub fn with_variant(variant: BpfVariant) -> Result<Self> {
-        let track_rmap = TrackerOptions::from_env().rmap;
-        Self::build(MemtrackBpf::with_variant(variant, track_rmap)?, true)
+        let physical = TrackerOptions::from_env().physical;
+        Self::build(MemtrackBpf::with_variant(variant, physical)?, true)
     }
 
     /// Build a tracker: attach lifetime tracepoints (and rmap fentries when the
