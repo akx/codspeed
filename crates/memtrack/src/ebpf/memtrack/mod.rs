@@ -227,10 +227,10 @@ impl MemtrackBpf {
             skel,
             probes: Vec::new(),
             rmap,
+            attached_offsets: std::collections::HashSet::new(),
         })
     }
 
-            attached_offsets: std::collections::HashSet::new(),
     /// Poll the allocation-event ring buffer into `tx`. The returned poller
     /// keeps the pipeline alive; events stop flowing when it is dropped.
     pub fn poll_events_with_channel(
