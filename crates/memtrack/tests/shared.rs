@@ -9,6 +9,11 @@ use std::process::Command;
 
 pub type TrackResult = anyhow::Result<(Vec<Event>, std::thread::JoinHandle<()>)>;
 
+pub struct AllocationTestCase {
+    pub name: &'static str,
+    pub source: &'static str,
+}
+
 /// Snapshot every tracked event, ordered by timestamp and deduplicated by
 /// `(addr, kind)` so repeated tracking of one allocation counts once.
 ///

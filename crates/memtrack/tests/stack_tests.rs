@@ -5,6 +5,7 @@ use itertools::Itertools;
 use memtrack::TrackerOptions;
 use rstest::rstest;
 use runner_shared::artifacts::{MemtrackEvent, MemtrackEventKind};
+use shared::AllocationTestCase;
 use std::mem::discriminant;
 use std::process::Command;
 use tempfile::TempDir;
@@ -74,41 +75,65 @@ fn format_events(events: &[MemtrackEvent]) -> Vec<String> {
         .collect()
 }
 
-#[test_with::env(GITHUB_ACTIONS)]
-#[rstest]
-#[case::stack_paths(include_str!("../testdata/stack_paths.c"), "stack_paths", true)]
-#[case::nested_doubling(
-    include_str!("../testdata/nested_doubling.c"),
-    "nested_doubling",
-    true
-)]
-#[case::nested_doubling_shared_free(
-    include_str!("../testdata/nested_doubling_shared_free.c"),
-    "nested_doubling_shared_free",
-    true
-)]
-#[case::stack_capture_disabled(
-    include_str!("../testdata/stack_paths.c"),
-    "stack_capture_disabled",
-    false
-)]
-#[test_log::test]
-fn test_stack_capture(
-    #[case] source: &str,
-    #[case] name: &str,
-    #[case] stack_capture: bool,
+const STACK_TEST_CASES: &[AllocationTestCase] = &[
+    AllocationTestCase {
+        name: "stack_paths",
+        source: include_str!("../testdata/stack_paths.c"),
+    },
+    AllocationTestCase {
+        name: "nested_doubling",
+        source: include_str!("../testdata/nested_doubling.c"),
+    },
+    AllocationTestCase {
+        name: "nested_doubling_shared_free",
+        source: include_str!("../testdata/nested_doubling_shared_free.c"),
+    },
+];
+
+fn assert_stack_snapshot(
+    test_case: &AllocationTestCase,
+    stack_capture: bool,
+    snapshot_name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = TempDir::new()?;
-    let binary = shared::compile_c_source(source, name, temp_dir.path())?;
+    let binary = shared::compile_c_source(test_case.source, test_case.name, temp_dir.path())?;
     let options = TrackerOptions::builder()
         .stack_capture(stack_capture)
         .build();
     let (events, thread_handle) = shared::track_command(Command::new(binary), options)?;
 
-    insta::assert_debug_snapshot!(name, format_events(&events));
+    insta::assert_debug_snapshot!(snapshot_name, format_events(&events));
 
     thread_handle
         .join()
         .expect("tracker teardown thread panicked");
     Ok(())
+}
+
+#[test_with::env(GITHUB_ACTIONS)]
+#[rstest]
+#[case(&STACK_TEST_CASES[0])]
+#[case(&STACK_TEST_CASES[1])]
+#[case(&STACK_TEST_CASES[2])]
+#[test_log::test]
+fn test_stack_capture(
+    #[case] test_case: &AllocationTestCase,
+) -> Result<(), Box<dyn std::error::Error>> {
+    assert_stack_snapshot(test_case, true, test_case.name)
+}
+
+#[test_with::env(GITHUB_ACTIONS)]
+#[rstest]
+#[case(&STACK_TEST_CASES[0])]
+#[case(&STACK_TEST_CASES[1])]
+#[case(&STACK_TEST_CASES[2])]
+#[test_log::test]
+fn test_stack_capture_disabled(
+    #[case] test_case: &AllocationTestCase,
+) -> Result<(), Box<dyn std::error::Error>> {
+    assert_stack_snapshot(
+        test_case,
+        false,
+        &format!("{}_stack_capture_disabled", test_case.name),
+    )
 }
