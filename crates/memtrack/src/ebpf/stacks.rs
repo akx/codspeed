@@ -8,8 +8,6 @@ pub struct StackCaptureStats {
     pub stackid_failed: u64,
     pub truncated: u64,
     pub ring_full: u64,
-    /// Captures skipped because another BPF program used the per-CPU scratch.
-    pub preempted: u64,
 }
 
 impl StackCaptureStats {
@@ -20,7 +18,6 @@ impl StackCaptureStats {
             stackid_failed: slot(map, MEMTRACK_STACK_COUNTER_STACKID_FAILED)?,
             truncated: slot(map, MEMTRACK_STACK_COUNTER_TRUNCATED)?,
             ring_full: slot(map, MEMTRACK_STACK_COUNTER_RING_FULL)?,
-            preempted: slot(map, MEMTRACK_STACK_COUNTER_PREEMPTED)?,
         })
     }
 }
